@@ -1,64 +1,101 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Sign in failed.");
+        return;
+      }
+
+      setMessage(`Signed in as ${data.username}.`);
+      setPassword("");
+    } catch {
+      setMessage("Could not reach server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="relative flex flex-1 overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,#93c5fd_0%,transparent_32%),radial-gradient(circle_at_80%_0%,#fcd34d_0%,transparent_34%),radial-gradient(circle_at_50%_90%,#99f6e4_0%,transparent_30%)]" />
-      <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-14 sm:px-10">
-        <nav className="mb-12 flex items-center justify-between">
-          <span className="rounded-full border border-slate-900/10 bg-white/80 px-4 py-1 text-sm font-semibold tracking-wide text-slate-700 backdrop-blur">
-            CDRE DATA
-          </span>
-          <span className="text-sm text-slate-600">Next.js + Neon + Vercel</span>
-        </nav>
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-semibold text-slate-900">Sign in</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Enter your username and password to continue.
+        </p>
 
-        <section className="grid flex-1 items-center gap-10 pb-8 lg:grid-cols-2 lg:gap-16">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <h1 className="text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl">
-              Collect, store, and organize links without the clutter.
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700">
-              A simple data collection workspace powered by Next.js, ready for
-              Neon Postgres, and easy to deploy on Vercel.
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
-                href="https://vercel.com/new"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl bg-slate-900 px-6 py-3 text-center font-semibold text-white transition hover:bg-slate-700"
-              >
-                Deploy to Vercel
-              </a>
-              <a
-                href="https://nextjs.org/docs"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl border border-slate-300 bg-white/80 px-6 py-3 text-center font-semibold text-slate-800 transition hover:border-slate-400"
-              >
-                Next.js Docs
-              </a>
-            </div>
+            <label
+              htmlFor="username"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Username
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-slate-300 focus:ring"
+              required
+            />
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white/85 p-6 shadow-[0_10px_35px_rgba(15,23,42,0.08)] backdrop-blur">
-            <h2 className="text-xl font-semibold text-slate-900">Starter Checklist</h2>
-            <ul className="mt-5 space-y-3 text-slate-700">
-              <li className="rounded-lg bg-emerald-50 px-4 py-3">
-                . Next.js app initialized with App Router
-              </li>
-              <li className="rounded-lg bg-emerald-50 px-4 py-3">
-                . Tailwind CSS installed and configured
-              </li>
-              <li className="rounded-lg bg-emerald-50 px-4 py-3">
-                . Neon DB client package installed
-              </li>
-              <li className="rounded-lg bg-amber-50 px-4 py-3">
-                . Add your `NEON_DB` value in .env before connecting DB
-              </li>
-            </ul>
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-slate-300 focus:ring"
+              required
+            />
           </div>
-        </section>
-      </main>
-    </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+
+        {message ? (
+          <p className="mt-4 text-sm text-slate-700" aria-live="polite">
+            {message}
+          </p>
+        ) : null}
+      </section>
+    </main>
   );
 }

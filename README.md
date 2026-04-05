@@ -48,3 +48,17 @@ npm run build
 ## Neon DB Note
 
 Set `NEON_DB` to your Neon connection string.
+
+## Auth Table + Dummy Users
+
+Run this once to create the `auth_users` table and seed sample users:
+
+```bash
+npm run db:init-auth
+```
+
+Dummy users:
+
+- admin / admin123
+- editor / editor123
+- viewer / viewer123
