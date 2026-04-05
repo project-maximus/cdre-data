@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 
 export async function POST(request) {
   try {
@@ -15,7 +16,7 @@ export async function POST(request) {
     }
 
     const users = await sql`
-      SELECT username, password_hash, password_salt
+      SELECT username, password_hash, password_salt, role
       FROM auth_users
       WHERE username = ${username}
       LIMIT 1
@@ -32,9 +33,18 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 
-    const response = NextResponse.json({ success: true, username: user.username });
+    const sessionData = JSON.stringify({
+      username: user.username,
+      role: user.role,
+    });
 
-    response.cookies.set("session_user", user.username, {
+    const response = NextResponse.json({
+      success: true,
+      username: user.username,
+      role: user.role,
+    });
+
+    response.cookies.set("session_user", sessionData, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -42,8 +52,11 @@ export async function POST(request) {
       maxAge: 60 * 60 * 8,
     });
 
+    logger.info("auth/signin", `User "${user.username}" signed in (role: ${user.role})`);
+
     return response;
-  } catch {
+  } catch (error) {
+    logger.error("auth/signin", error);
     return NextResponse.json(
       { error: "Unable to sign in right now." },
       { status: 500 }

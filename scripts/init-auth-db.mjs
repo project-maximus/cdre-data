@@ -1,32 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import crypto from "node:crypto";
 import { neon } from "@neondatabase/serverless";
-
-function loadEnvFromFile() {
-  const envPath = path.resolve(process.cwd(), ".env");
-
-  if (!fs.existsSync(envPath)) {
-    return;
-  }
-
-  const envLines = fs.readFileSync(envPath, "utf-8").split("\n");
-
-  for (const line of envLines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf("=");
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-
-    if (!process.env[key]) {
-      process.env[key] = rawValue;
-    }
-  }
-}
+import { loadEnvFromFile } from "./env.mjs";
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const hash = crypto
@@ -52,31 +26,56 @@ async function main() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       password_salt TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'teacher' CHECK (role IN ('admin', 'teacher', 'developer')),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
-  const dummyUsers = [
-    { username: "admin", password: "admin123" },
-    { username: "editor", password: "editor123" },
-    { username: "viewer", password: "viewer123" },
+  /* Add role column to existing tables that lack it */
+  await sql`
+    ALTER TABLE auth_users
+    ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'teacher'
+  `;
+
+  await sql`
+    ALTER TABLE auth_users
+    DROP CONSTRAINT IF EXISTS auth_users_role_check
+  `;
+
+  await sql`
+    ALTER TABLE auth_users
+    ADD CONSTRAINT auth_users_role_check
+    CHECK (role IN ('admin', 'teacher', 'developer'))
+  `;
+
+  const users = [
+    { username: "admin", password: "admin123", role: "admin" },
+    { username: "teacher", password: "teacher123", role: "teacher" },
+    { username: "developer", password: "developer123", role: "developer" },
   ];
 
-  for (const entry of dummyUsers) {
+  for (const entry of users) {
     const { hash, salt } = hashPassword(entry.password);
 
     await sql`
-      INSERT INTO auth_users (username, password_hash, password_salt)
-      VALUES (${entry.username}, ${hash}, ${salt})
+      INSERT INTO auth_users (username, password_hash, password_salt, role)
+      VALUES (${entry.username}, ${hash}, ${salt}, ${entry.role})
       ON CONFLICT (username)
       DO UPDATE
       SET password_hash = EXCLUDED.password_hash,
-          password_salt = EXCLUDED.password_salt
+          password_salt = EXCLUDED.password_salt,
+          role = EXCLUDED.role
     `;
   }
 
-  console.log("auth_users table is ready and dummy users are seeded.");
-  console.log("Dummy users: admin/admin123, editor/editor123, viewer/viewer123");
+  /* Remove old users that are no longer needed */
+  await sql`
+    DELETE FROM auth_users
+    WHERE username NOT IN ('admin', 'teacher', 'developer')
+  `;
+
+  console.log("auth_users table is ready with roles.");
+  console.log("Users: admin/admin123 (admin), teacher/teacher123 (teacher), developer/developer123 (developer)");
 }
 
 main().catch((error) => {

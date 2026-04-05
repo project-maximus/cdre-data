@@ -1,31 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
 import { neon } from "@neondatabase/serverless";
-
-function loadEnvFromFile() {
-  const envPath = path.resolve(process.cwd(), ".env");
-
-  if (!fs.existsSync(envPath)) {
-    return;
-  }
-
-  const envLines = fs.readFileSync(envPath, "utf-8").split("\n");
-
-  for (const line of envLines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf("=");
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const rawValue = trimmed.slice(separatorIndex + 1).trim();
-
-    if (!process.env[key]) {
-      process.env[key] = rawValue;
-    }
-  }
-}
+import { loadEnvFromFile } from "./env.mjs";
 
 const CONTENT = [
   {
@@ -278,35 +252,22 @@ async function main() {
     )
   `;
 
+  /* Add unique constraint to prevent duplicate resource types per subsection */
   await sql`
-    ALTER TABLE content_resources
-    ALTER COLUMN status SET DEFAULT 'not_submitted'
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_subsection_resource
+    ON content_resources (subsection_id, resource_type)
   `;
 
+  /* Add index on subsection_id for faster lookups */
   await sql`
-    ALTER TABLE content_resources
-    ADD COLUMN IF NOT EXISTS source_mode TEXT NOT NULL DEFAULT 'drive_link'
+    CREATE INDEX IF NOT EXISTS idx_resources_subsection
+    ON content_resources (subsection_id)
   `;
 
+  /* Add index on subsections.section_id for faster joins */
   await sql`
-    ALTER TABLE content_resources
-    DROP CONSTRAINT IF EXISTS content_resources_source_mode_check
-  `;
-
-  await sql`
-    ALTER TABLE content_resources
-    ADD CONSTRAINT content_resources_source_mode_check
-    CHECK (source_mode IN ('drive_link', 'ai_generated'))
-  `;
-
-  await sql`
-    ALTER TABLE content_resources
-    ALTER COLUMN drive_url DROP NOT NULL
-  `;
-
-  await sql`
-    ALTER TABLE content_resources
-    ADD COLUMN IF NOT EXISTS ai_note TEXT
+    CREATE INDEX IF NOT EXISTS idx_subsections_section
+    ON content_subsections (section_id)
   `;
 
   for (let sectionIndex = 0; sectionIndex < CONTENT.length; sectionIndex += 1) {

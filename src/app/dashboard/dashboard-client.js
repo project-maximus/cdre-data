@@ -2,6 +2,54 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ToastProvider, useToast } from "../components/Toast";
+import StatusBadge from "../components/StatusBadge";
+import ConfirmModal from "../components/ConfirmModal";
+import ThemeToggle from "../components/ThemeToggle";
+
+/* ── SVG Icons ── */
+const I = {
+  Layers: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1.5L1.5 5L8 8.5L14.5 5L8 1.5Z"/><path d="M1.5 8L8 11.5L14.5 8"/><path d="M1.5 11L8 14.5L14.5 11"/>
+    </svg>
+  ),
+  Chart: () => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="8" width="3" height="6" rx="0.5"/><rect x="6.5" y="4" width="3" height="10" rx="0.5"/><rect x="11" y="2" width="3" height="12" rx="0.5"/>
+    </svg>
+  ),
+  Edit: () => (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11.5 1.5L14.5 4.5L5 14H2V11L11.5 1.5Z"/>
+    </svg>
+  ),
+  Trash: () => (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 4H14"/><path d="M5 4V2.5C5 2.22 5.22 2 5.5 2H10.5C10.78 2 11 2.22 11 2.5V4"/><path d="M12.5 4V13.5C12.5 13.78 12.28 14 12 14H4C3.72 14 3.5 13.78 3.5 13.5V4"/>
+    </svg>
+  ),
+  External: () => (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 8.5V13.5H2.5V4H7.5"/><path d="M10 2.5H13.5V6"/><path d="M7 9L13.5 2.5"/>
+    </svg>
+  ),
+  Menu: () => (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M3 5H15"/><path d="M3 9H15"/><path d="M3 13H15"/>
+    </svg>
+  ),
+  Info: () => (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="8" cy="8" r="6"/><path d="M8 7V11"/><circle cx="8" cy="5" r="0.5" fill="currentColor"/>
+    </svg>
+  ),
+  Doc: () => (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5.5 5.5H10.5"/><path d="M5.5 8H10.5"/><path d="M5.5 10.5H8"/>
+    </svg>
+  ),
+};
 
 const RESOURCE_LABELS = {
   study_notes: "Study Notes",
@@ -9,515 +57,318 @@ const RESOURCE_LABELS = {
   video: "Video Lesson",
   review_questions: "Review Questions",
   references: "References",
-  worksheet: "Worksheet/PDF",
+  worksheet: "Worksheet / PDF",
   other: "Other",
 };
 
 const SOURCE_MODE_LABELS = {
   drive_link: "Google Drive Link",
-  ai_generated: "Use AI Generated Stuff",
+  ai_generated: "AI-Assisted Content",
 };
 
-const STATUS_LABELS = {
-  not_submitted: "Not Submitted",
-  resubmit: "Resubmit",
-  done: "Done",
-};
+export default function DashboardClient({ username, role }) {
+  return (
+    <ToastProvider>
+      <DashboardInner username={username} role={role} />
+    </ToastProvider>
+  );
+}
 
-export default function DashboardClient({ username }) {
+function DashboardInner({ username, role }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
   const [resourceTypes, setResourceTypes] = useState([]);
   const [sourceModes, setSourceModes] = useState([]);
   const [activeSectionId, setActiveSectionId] = useState(null);
-  const [globalMessage, setGlobalMessage] = useState("");
   const [forms, setForms] = useState({});
+  const [saving, setSaving] = useState({});
   const [editing, setEditing] = useState({});
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeSection = useMemo(
-    () => sections.find((section) => section.id === activeSectionId),
+    () => sections.find((s) => s.id === activeSectionId),
     [sections, activeSectionId]
   );
 
   async function loadData() {
     setLoading(true);
-    setGlobalMessage("");
-
     try {
-      const response = await fetch("/api/content", { cache: "no-store" });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setGlobalMessage(data.error || "Failed to load dashboard data.");
-        return;
-      }
-
+      const res = await fetch("/api/content", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Failed to load content."); return; }
       setSections(data.sections || []);
       setResourceTypes(data.resourceTypes || []);
       setSourceModes(data.sourceModes || []);
-
-      if (data.sections?.length) {
-        setActiveSectionId((prev) => prev || data.sections[0].id);
-      }
-    } catch {
-      setGlobalMessage("Could not load dashboard right now.");
-    } finally {
-      setLoading(false);
-    }
+      if (data.sections?.length) setActiveSectionId((prev) => prev || data.sections[0].id);
+    } catch { toast.error("Could not connect to server."); }
+    finally { setLoading(false); }
   }
 
-  function getFormState(subsectionId) {
-    return (
-      forms[subsectionId] || {
-        sourceMode: sourceModes[0] || "drive_link",
-        driveUrl: "",
-        aiNote: "",
-        resourceType: resourceTypes[0] || "study_notes",
-      }
-    );
+  function getForm(sid) {
+    return forms[sid] || { sourceMode: sourceModes[0] || "drive_link", driveUrl: "", aiNote: "", resourceType: resourceTypes[0] || "study_notes" };
   }
 
-  function updateForm(subsectionId, key, value) {
-    const current = getFormState(subsectionId);
-    setForms((prev) => ({
-      ...prev,
-      [subsectionId]: {
-        ...current,
-        [key]: value,
-      },
-    }));
+  function updateForm(sid, key, value) {
+    setForms((prev) => ({ ...prev, [sid]: { ...getForm(sid), [key]: value } }));
   }
 
-  async function addResource(event, subsectionId) {
-    event.preventDefault();
-    const state = getFormState(subsectionId);
-
-    if (state.sourceMode === "drive_link" && !state.driveUrl) {
-      setGlobalMessage("Google Drive link is required for Drive Link mode.");
-      return;
-    }
-
-    setSaving(true);
-    setGlobalMessage("");
-
+  async function addResource(e, sid) {
+    e.preventDefault();
+    const s = getForm(sid);
+    if (s.sourceMode === "drive_link" && !s.driveUrl) { toast.error("Please provide a Google Drive link."); return; }
+    setSaving((p) => ({ ...p, [sid]: true }));
     try {
-      const response = await fetch("/api/content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subsectionId,
-          sourceMode: state.sourceMode,
-          driveUrl: state.driveUrl,
-          aiNote: state.aiNote,
-          resourceType: state.resourceType,
-        }),
+      const res = await fetch("/api/content", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subsectionId: sid, sourceMode: s.sourceMode, driveUrl: s.driveUrl, aiNote: s.aiNote, resourceType: s.resourceType }),
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        setGlobalMessage(data.error || "Could not save this link.");
-        return;
-      }
-
-      setForms((prev) => ({
-        ...prev,
-        [subsectionId]: {
-          ...state,
-          driveUrl: "",
-          aiNote: "",
-        },
-      }));
-
-      setGlobalMessage("Submitted and marked as Done.");
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Could not save."); return; }
+      setForms((p) => ({ ...p, [sid]: { ...s, driveUrl: "", aiNote: "" } }));
+      toast.success("Resource submitted successfully.");
       await loadData();
-    } catch {
-      setGlobalMessage("Could not save this link.");
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error("Could not save resource."); }
+    finally { setSaving((p) => ({ ...p, [sid]: false })); }
   }
 
-  function startEditing(resource) {
-    setEditing((prev) => ({
-      ...prev,
-      [resource.id]: {
-        sourceMode: resource.sourceMode || "drive_link",
-        driveUrl: resource.driveUrl || "",
-        aiNote: resource.aiNote || "",
-      },
-    }));
+  function startEditing(r) {
+    setEditing((p) => ({ ...p, [r.id]: { sourceMode: r.sourceMode || "drive_link", driveUrl: r.driveUrl || "", aiNote: r.aiNote || "" } }));
   }
 
-  function cancelEditing(resourceId) {
-    setEditing((prev) => {
-      const next = { ...prev };
-      delete next[resourceId];
-      return next;
-    });
-  }
+  function cancelEditing(rid) { setEditing((p) => { const n = { ...p }; delete n[rid]; return n; }); }
 
-  async function saveEditedResource(resourceId) {
-    const state = editing[resourceId];
-    const driveUrl = state?.driveUrl || "";
-    const aiNote = state?.aiNote || "";
-    const sourceMode = state?.sourceMode || "drive_link";
-
-    if (sourceMode === "drive_link" && !driveUrl) {
-      setGlobalMessage("Google Drive link is required for Drive Link mode.");
-      return;
-    }
-
-    setSaving(true);
-    setGlobalMessage("");
-
+  async function saveEdit(rid) {
+    const s = editing[rid]; if (!s) return;
+    if (s.sourceMode === "drive_link" && !s.driveUrl) { toast.error("Please provide a Google Drive link."); return; }
+    setSaving((p) => ({ ...p, [`e-${rid}`]: true }));
     try {
-      const response = await fetch(`/api/content/resources/${resourceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceMode, driveUrl, aiNote }),
+      const res = await fetch(`/api/content/resources/${rid}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceMode: s.sourceMode, driveUrl: s.driveUrl, aiNote: s.aiNote }),
       });
-      const data = await response.json();
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Could not update."); return; }
+      cancelEditing(rid); toast.success("Resource updated."); await loadData();
+    } catch { toast.error("Could not update resource."); }
+    finally { setSaving((p) => ({ ...p, [`e-${rid}`]: false })); }
+  }
 
-      if (!response.ok) {
-        setGlobalMessage(data.error || "Could not update this link.");
-        return;
-      }
-
-      cancelEditing(resourceId);
-      setGlobalMessage("Updated and marked as Resubmitted.");
-      await loadData();
-    } catch {
-      setGlobalMessage("Could not update this link.");
-    } finally {
-      setSaving(false);
-    }
+  async function deleteResource(rid) {
+    try {
+      const res = await fetch(`/api/content/resources/${rid}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error || "Could not delete."); return; }
+      toast.success("Resource deleted."); setDeleteTarget(null); await loadData();
+    } catch { toast.error("Could not delete resource."); }
   }
 
   async function signOut() {
     await fetch("/api/auth/signout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    router.push("/"); router.refresh();
   }
 
+  const canDelete = role === "admin" || role === "developer";
+
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div>
-            <h1 className="text-xl font-semibold">NutriPath CDRE Prep Platform</h1>
-            <p className="text-sm text-slate-600">Signed in as {username}</p>
-          </div>
-          <button
-            onClick={signOut}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50"
-          >
-            Sign out
-          </button>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      {sidebarOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(6,8,15,0.6)", zIndex: 35, backdropFilter: "blur(4px)" }} onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sb-brand">
+          <div className="sb-brand-icon"><I.Layers /></div>
+          <div className="sb-brand-text"><h1>NutriPath</h1><p>Content Hub</p></div>
         </div>
-      </header>
 
-      {mounted ? (
-        <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Warning: Follow Exact Naming + Valid Drive Links</p>
-            <p className="mt-1">
-              Use exact subsection naming and a consistent file name pattern such as
-              SubsectionCode_ResourceType_Version.
-            </p>
-            <p className="mt-1">
-              You can choose Google Drive Link mode or Use AI Generated Stuff mode.
-              For Drive Link mode, make sure link permissions allow access.
-            </p>
+        <nav className="sb-nav">
+          <div className="sb-label">Sections</div>
+          <div className="stagger">
+            {sections.map((section) => {
+              const count = section.subsections?.reduce((a, s) => a + (s.resources?.length || 0), 0);
+              return (
+                <button key={section.id} onClick={() => { setActiveSectionId(section.id); setSidebarOpen(false); }}
+                  className={`sb-item ${activeSectionId === section.id ? "active" : ""}`}>
+                  <span className="sb-item-icon"><I.Doc /></span>
+                  <span className="sb-item-label">{section.title}</span>
+                  {count > 0 && <span className="sb-item-count">{count}</span>}
+                </button>
+              );
+            })}
           </div>
-        </div>
-      ) : null}
-
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[300px_1fr] lg:px-8">
-        <aside className="rounded-xl border border-slate-200 bg-white p-3">
-          <h2 className="mb-2 px-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Sections
-          </h2>
-          <div className="space-y-1">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSectionId(section.id)}
-                className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
-                  activeSectionId === section.id
-                    ? "bg-slate-900 text-white"
-                    : "hover:bg-slate-100"
-                }`}
-              >
-                {section.title}
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-          {loading ? <p>Loading content...</p> : null}
-          {!loading && !activeSection ? <p>No section found.</p> : null}
-
-          {!loading && activeSection ? (
+          {role === "developer" && (
             <>
-              <div className="mb-6">
-                <h2 className="text-2xl font-semibold">{activeSection.title}</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Default status is Not Submitted. First save becomes Done. Editing marks it as Resubmitted.
-                </p>
-                {globalMessage ? (
-                  <p className="mt-2 text-sm text-slate-700" aria-live="polite">
-                    {globalMessage}
-                  </p>
-                ) : null}
-              </div>
+              <div className="sb-label" style={{ marginTop: 16 }}>Admin</div>
+              <button className="sb-item" onClick={() => router.push("/admin")}>
+                <span className="sb-item-icon"><I.Chart /></span>
+                <span className="sb-item-label">Admin Dashboard</span>
+              </button>
+            </>
+          )}
+        </nav>
 
-              <div className="space-y-6">
-                {activeSection.subsections.map((subsection) => {
-                  const form = getFormState(subsection.id);
+        <div className="sb-footer">
+          <div className="sb-user">
+            <div className="sb-avatar">{username.charAt(0).toUpperCase()}</div>
+            <div><div className="sb-user-name">{username}</div><div className="sb-user-role">{role}</div></div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={signOut} className="sb-signout" style={{ flex: 1 }}>Sign out</button>
+            <ThemeToggle />
+          </div>
+        </div>
+      </aside>
 
-                  return (
-                    <article
-                      key={subsection.id}
-                      className="rounded-lg border border-slate-200 p-4"
-                    >
-                      <h3 className="font-semibold">{subsection.code} - {subsection.title}</h3>
+      <main className="main-content">
+        <div style={{ display: "none", marginBottom: 16 }} className="mobile-trigger">
+          <button className="btn btn-secondary btn-sm" onClick={() => setSidebarOpen(true)}><I.Menu /> Menu</button>
+        </div>
+        <style>{`@media (max-width: 1024px) { .mobile-trigger { display: block !important; } }`}</style>
 
-                      <form
-                        onSubmit={(event) => addResource(event, subsection.id)}
-                        className="mt-3 grid gap-3 md:grid-cols-[170px_1fr_170px_120px]"
-                      >
-                        <select
-                          value={form.sourceMode}
-                          onChange={(event) =>
-                            updateForm(subsection.id, "sourceMode", event.target.value)
-                          }
-                          className="rounded-lg border border-slate-300 px-3 py-2"
-                        >
-                          {sourceModes.map((mode) => (
-                            <option key={mode} value={mode}>
-                              {SOURCE_MODE_LABELS[mode] || mode}
-                            </option>
-                          ))}
+        <div className="page-header">
+          <h2 className="page-title">{loading ? "Loading..." : activeSection?.title || "Select a section"}</h2>
+          <p className="page-subtitle">Submit content resources for each topic. Choose your upload method and resource type.</p>
+        </div>
+
+        {!loading && activeSection && (
+          <div className="tip-banner animate-fadeIn">
+            <div className="tip-indicator"><I.Info /></div>
+            <div className="tip-content">
+              <strong>How it works — </strong>
+              Select a resource type, choose your upload method, then submit.
+              Each topic can have one resource per type. You can edit submissions anytime.
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="empty-state">
+            <div className="empty-state-icon" style={{ animation: "breathe 2s ease-in-out infinite" }}><I.Layers /></div>
+            <p className="empty-state-text">Loading content...</p>
+          </div>
+        )}
+
+        {!loading && activeSection && (
+          <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {activeSection.subsections.map((sub) => {
+              const form = getForm(sub.id);
+              const isSaving = saving[sub.id] || false;
+              return (
+                <div key={sub.id} className="sub-card">
+                  <div className="sub-header">
+                    <h3 className="sub-title">{sub.title}</h3>
+                    {sub.resources.length > 0 ? (
+                      <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>
+                        {sub.resources.length} resource{sub.resources.length !== 1 ? "s" : ""}
+                      </span>
+                    ) : (
+                      <StatusBadge status="not_submitted" />
+                    )}
+                  </div>
+                  <div className="sub-body">
+                    <form onSubmit={(e) => addResource(e, sub.id)} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+                      <div style={{ flex: "0 0 auto", minWidth: 160 }}>
+                        <label className="label">Upload Method</label>
+                        <select value={form.sourceMode} onChange={(e) => updateForm(sub.id, "sourceMode", e.target.value)} className="select">
+                          {sourceModes.map((m) => <option key={m} value={m}>{SOURCE_MODE_LABELS[m] || m}</option>)}
                         </select>
-
-                        <input
-                          type="url"
-                          placeholder={
-                            form.sourceMode === "ai_generated"
-                              ? "No link needed for AI mode"
-                              : "Google Drive link"
-                          }
-                          value={form.driveUrl}
-                          onChange={(event) =>
-                            updateForm(subsection.id, "driveUrl", event.target.value)
-                          }
-                          className="rounded-lg border border-slate-300 px-3 py-2"
-                          required={form.sourceMode === "drive_link"}
-                          disabled={form.sourceMode === "ai_generated"}
-                        />
-
-                        <select
-                          value={form.resourceType}
-                          onChange={(event) =>
-                            updateForm(subsection.id, "resourceType", event.target.value)
-                          }
-                          className="rounded-lg border border-slate-300 px-3 py-2"
-                        >
-                          {resourceTypes.map((type) => (
-                            <option key={type} value={type}>
-                              {RESOURCE_LABELS[type] || type}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="submit"
-                          disabled={saving}
-                          className="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
-                        >
-                          Submit
-                        </button>
-                      </form>
-
-                      {form.sourceMode === "ai_generated" ? (
-                        <textarea
-                          value={form.aiNote}
-                          onChange={(event) =>
-                            updateForm(subsection.id, "aiNote", event.target.value)
-                          }
-                          placeholder="Optional AI prompt/script/explanation for this subsection"
-                          className="mt-3 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2"
-                        />
-                      ) : null}
-
-                      <div className="mt-4 space-y-2">
-                        {subsection.resources.length ? null : (
-                          <p className="text-sm text-slate-500">
-                            No links yet. Status: <strong>{STATUS_LABELS.not_submitted}</strong>
-                          </p>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <label className="label">{form.sourceMode === "ai_generated" ? "Notes (optional)" : "Google Drive Link"}</label>
+                        {form.sourceMode === "ai_generated" ? (
+                          <input type="text" value={form.aiNote} onChange={(e) => updateForm(sub.id, "aiNote", e.target.value)} className="input" placeholder="Describe what AI content is needed..." />
+                        ) : (
+                          <input type="url" value={form.driveUrl} onChange={(e) => updateForm(sub.id, "driveUrl", e.target.value)} className="input" placeholder="https://drive.google.com/..." required />
                         )}
+                      </div>
+                      <div style={{ flex: "0 0 auto", minWidth: 150 }}>
+                        <label className="label">Resource Type</label>
+                        <select value={form.resourceType} onChange={(e) => updateForm(sub.id, "resourceType", e.target.value)} className="select">
+                          {resourceTypes.map((t) => <option key={t} value={t}>{RESOURCE_LABELS[t] || t}</option>)}
+                        </select>
+                      </div>
+                      <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ height: 38 }}>
+                        {isSaving ? "Saving..." : "Submit"}
+                      </button>
+                    </form>
 
-                        {subsection.resources.map((resource) => (
-                          <div
-                            key={resource.id}
-                            className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800">
-                                {SOURCE_MODE_LABELS[resource.sourceMode] || resource.sourceMode}
-                              </span>
-                              <span className="rounded bg-white px-2 py-1 text-xs font-medium">
-                                {RESOURCE_LABELS[resource.resourceType] || resource.resourceType}
-                              </span>
-                              <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800">
-                                {STATUS_LABELS[resource.status] || resource.status}
-                              </span>
-                              <span className="text-xs text-slate-600">
-                                by {resource.createdBy}
-                              </span>
-                            </div>
-
-                            {editing[resource.id] !== undefined ? (
-                              <div className="mt-2 space-y-2">
-                                <select
-                                  value={editing[resource.id].sourceMode}
-                                  onChange={(event) =>
-                                    setEditing((prev) => ({
-                                      ...prev,
-                                      [resource.id]: {
-                                        ...prev[resource.id],
-                                        sourceMode: event.target.value,
-                                        driveUrl:
-                                          event.target.value === "ai_generated"
-                                            ? ""
-                                            : prev[resource.id].driveUrl,
-                                        aiNote:
-                                          event.target.value === "drive_link"
-                                            ? ""
-                                            : prev[resource.id].aiNote,
-                                      },
-                                    }))
-                                  }
-                                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-                                >
-                                  {sourceModes.map((mode) => (
-                                    <option key={mode} value={mode}>
-                                      {SOURCE_MODE_LABELS[mode] || mode}
-                                    </option>
-                                  ))}
-                                </select>
-
-                                <input
-                                  type="url"
-                                  value={editing[resource.id].driveUrl}
-                                  onChange={(event) =>
-                                    setEditing((prev) => ({
-                                      ...prev,
-                                      [resource.id]: {
-                                        ...prev[resource.id],
-                                        driveUrl: event.target.value,
-                                      },
-                                    }))
-                                  }
-                                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-                                  required={editing[resource.id].sourceMode === "drive_link"}
-                                  disabled={editing[resource.id].sourceMode === "ai_generated"}
-                                  placeholder={
-                                    editing[resource.id].sourceMode === "ai_generated"
-                                      ? "No link needed for AI mode"
-                                      : "Google Drive link"
-                                  }
-                                />
-
-                                {editing[resource.id].sourceMode === "ai_generated" ? (
-                                  <textarea
-                                    value={editing[resource.id].aiNote}
-                                    onChange={(event) =>
-                                      setEditing((prev) => ({
-                                        ...prev,
-                                        [resource.id]: {
-                                          ...prev[resource.id],
-                                          aiNote: event.target.value,
-                                        },
-                                      }))
-                                    }
-                                    placeholder="Optional AI prompt/script/explanation"
-                                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-                                  />
-                                ) : null}
-
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => saveEditedResource(resource.id)}
-                                    disabled={saving}
-                                    className="rounded bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-700 disabled:opacity-60"
-                                  >
-                                    Save Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => cancelEditing(resource.id)}
-                                    className="rounded border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50"
-                                  >
-                                    Cancel
-                                  </button>
+                    {sub.resources.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        {sub.resources.map((r) => (
+                          <div key={r.id} className="res-item">
+                            {editing[r.id] !== undefined ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                  <select value={editing[r.id].sourceMode}
+                                    onChange={(e) => setEditing((p) => ({ ...p, [r.id]: { ...p[r.id], sourceMode: e.target.value, driveUrl: e.target.value === "ai_generated" ? "" : p[r.id].driveUrl, aiNote: e.target.value === "drive_link" ? "" : p[r.id].aiNote } }))}
+                                    className="select" style={{ width: "auto", minWidth: 160 }}>
+                                    {sourceModes.map((m) => <option key={m} value={m}>{SOURCE_MODE_LABELS[m] || m}</option>)}
+                                  </select>
+                                  {editing[r.id].sourceMode === "drive_link" ? (
+                                    <input type="url" value={editing[r.id].driveUrl} onChange={(e) => setEditing((p) => ({ ...p, [r.id]: { ...p[r.id], driveUrl: e.target.value } }))} className="input" style={{ flex: 1, minWidth: 200 }} placeholder="https://drive.google.com/..." required />
+                                  ) : (
+                                    <input type="text" value={editing[r.id].aiNote} onChange={(e) => setEditing((p) => ({ ...p, [r.id]: { ...p[r.id], aiNote: e.target.value } }))} className="input" style={{ flex: 1, minWidth: 200 }} placeholder="Describe what AI content is needed..." />
+                                  )}
+                                </div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button type="button" onClick={() => saveEdit(r.id)} disabled={saving[`e-${r.id}`]} className="btn btn-primary btn-sm">{saving[`e-${r.id}`] ? "Saving..." : "Save Changes"}</button>
+                                  <button type="button" onClick={() => cancelEditing(r.id)} className="btn btn-ghost btn-sm">Cancel</button>
                                 </div>
                               </div>
                             ) : (
                               <>
-                                {resource.sourceMode === "drive_link" ? (
-                                  <a
-                                    href={resource.driveUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-2 block break-all text-sm text-blue-700 underline"
-                                  >
-                                    {resource.driveUrl}
+                                <div className="res-meta">
+                                  <span className="badge badge-source">{SOURCE_MODE_LABELS[r.sourceMode] || r.sourceMode}</span>
+                                  <span className="badge badge-type">{RESOURCE_LABELS[r.resourceType] || r.resourceType}</span>
+                                  <StatusBadge status={r.status} />
+                                  <span className="res-by">by {r.createdBy}</span>
+                                </div>
+                                {r.sourceMode === "drive_link" && r.driveUrl && (
+                                  <a href={r.driveUrl} target="_blank" rel="noreferrer" className="res-link" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 8 }}>
+                                    <I.External />{r.driveUrl.length > 60 ? r.driveUrl.slice(0, 60) + "..." : r.driveUrl}
                                   </a>
-                                ) : (
-                                  <div className="mt-2 space-y-1">
-                                    <p className="text-sm text-slate-700">
-                                      AI generated content requested for this item.
-                                    </p>
-                                    {resource.aiNote ? (
-                                      <p className="rounded bg-white p-2 text-sm text-slate-800">
-                                        {resource.aiNote}
-                                      </p>
-                                    ) : null}
+                                )}
+                                {r.sourceMode === "ai_generated" && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>AI-assisted content{r.aiNote ? ":" : " requested"}</p>
+                                    {r.aiNote && <p style={{ fontSize: 13, color: "var(--text-secondary)", background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: "var(--radius-sm)", marginTop: 4, border: "1px solid var(--border-subtle)" }}>{r.aiNote}</p>}
                                   </div>
                                 )}
-                                <div className="mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditing(resource)}
-                                    className="rounded border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50"
-                                  >
-                                    Edit
-                                  </button>
+                                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                                  <button type="button" onClick={() => startEditing(r)} className="btn btn-ghost btn-sm"><I.Edit /> Edit</button>
+                                  {canDelete && <button type="button" onClick={() => setDeleteTarget(r.id)} className="btn btn-danger btn-sm"><I.Trash /> Delete</button>}
                                 </div>
                               </>
                             )}
                           </div>
                         ))}
                       </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </>
-          ) : null}
-        </section>
-      </div>
-    </main>
+                    )}
+                    {sub.resources.length === 0 && (
+                      <div className="empty-state" style={{ padding: "16px 0" }}>
+                        <p className="empty-state-hint">No resources submitted yet — use the form above to add one.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {deleteTarget && (
+        <ConfirmModal title="Delete Resource" description="Are you sure you want to delete this resource? This action cannot be undone."
+          confirmLabel="Delete" confirmClass="btn-danger" onConfirm={() => deleteResource(deleteTarget)} onCancel={() => setDeleteTarget(null)} />
+      )}
+    </div>
   );
 }

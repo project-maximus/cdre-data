@@ -1,29 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { requireSessionUser } from "@/lib/session";
-
-const ALLOWED_TYPES = new Set([
-  "study_notes",
-  "audio",
-  "video",
-  "review_questions",
-  "references",
-  "worksheet",
-  "other",
-]);
-
-const ALLOWED_STATUSES = new Set(["not_submitted", "resubmit", "done"]);
-const ALLOWED_SOURCE_MODES = new Set(["drive_link", "ai_generated"]);
-
-function isGoogleDriveUrl(input) {
-  try {
-    const url = new URL(input);
-    const host = url.hostname.toLowerCase();
-    return host.includes("drive.google.com") || host.includes("docs.google.com");
-  } catch {
-    return false;
-  }
-}
+import { logger } from "@/lib/logger";
+import {
+  ALLOWED_RESOURCE_TYPES,
+  ALLOWED_SOURCE_MODES,
+  ALLOWED_STATUSES,
+  isGoogleDriveUrl,
+} from "@/lib/validate";
 
 export async function GET(request) {
   const session = requireSessionUser(request);
@@ -33,30 +17,61 @@ export async function GET(request) {
 
   try {
     const sql = getSql();
+    const { searchParams } = new URL(request.url);
+    const sectionFilter = searchParams.get("section");
 
-    const rows = await sql`
-      SELECT
-        s.id AS section_id,
-        s.code AS section_code,
-        s.title AS section_title,
-        s.sort_order AS section_order,
-        ss.id AS subsection_id,
-        ss.code AS subsection_code,
-        ss.title AS subsection_title,
-        ss.sort_order AS subsection_order,
-        r.id AS resource_id,
-        r.resource_type,
-        r.source_mode,
-        r.drive_url,
-        r.ai_note,
-        r.status,
-        r.created_by,
-        r.updated_at
-      FROM content_sections s
-      LEFT JOIN content_subsections ss ON ss.section_id = s.id
-      LEFT JOIN content_resources r ON r.subsection_id = ss.id
-      ORDER BY s.sort_order, ss.sort_order, r.updated_at DESC
-    `;
+    let rows;
+
+    if (sectionFilter) {
+      rows = await sql`
+        SELECT
+          s.id AS section_id,
+          s.code AS section_code,
+          s.title AS section_title,
+          s.sort_order AS section_order,
+          ss.id AS subsection_id,
+          ss.code AS subsection_code,
+          ss.title AS subsection_title,
+          ss.sort_order AS subsection_order,
+          r.id AS resource_id,
+          r.resource_type,
+          r.source_mode,
+          r.drive_url,
+          r.ai_note,
+          r.status,
+          r.created_by,
+          r.updated_at
+        FROM content_sections s
+        LEFT JOIN content_subsections ss ON ss.section_id = s.id
+        LEFT JOIN content_resources r ON r.subsection_id = ss.id
+        WHERE s.id = ${Number(sectionFilter)}
+        ORDER BY s.sort_order, ss.sort_order, r.updated_at DESC
+      `;
+    } else {
+      rows = await sql`
+        SELECT
+          s.id AS section_id,
+          s.code AS section_code,
+          s.title AS section_title,
+          s.sort_order AS section_order,
+          ss.id AS subsection_id,
+          ss.code AS subsection_code,
+          ss.title AS subsection_title,
+          ss.sort_order AS subsection_order,
+          r.id AS resource_id,
+          r.resource_type,
+          r.source_mode,
+          r.drive_url,
+          r.ai_note,
+          r.status,
+          r.created_by,
+          r.updated_at
+        FROM content_sections s
+        LEFT JOIN content_subsections ss ON ss.section_id = s.id
+        LEFT JOIN content_resources r ON r.subsection_id = ss.id
+        ORDER BY s.sort_order, ss.sort_order, r.updated_at DESC
+      `;
+    }
 
     const sectionMap = new Map();
 
@@ -106,12 +121,14 @@ export async function GET(request) {
 
     return NextResponse.json({
       username: session.username,
+      role: session.role,
       sections: Array.from(sectionMap.values()),
       statuses: Array.from(ALLOWED_STATUSES),
-      resourceTypes: Array.from(ALLOWED_TYPES),
+      resourceTypes: Array.from(ALLOWED_RESOURCE_TYPES),
       sourceModes: Array.from(ALLOWED_SOURCE_MODES),
     });
-  } catch {
+  } catch (error) {
+    logger.error("api/content GET", error);
     return NextResponse.json(
       { error: "Unable to load content right now." },
       { status: 500 }
@@ -138,7 +155,7 @@ export async function POST(request) {
       );
     }
 
-    if (!ALLOWED_TYPES.has(resourceType)) {
+    if (!ALLOWED_RESOURCE_TYPES.has(resourceType)) {
       return NextResponse.json({ error: "Invalid resource type." }, { status: 400 });
     }
 
@@ -150,6 +167,22 @@ export async function POST(request) {
       return NextResponse.json(
         { error: "Please provide a valid Google Drive link." },
         { status: 400 }
+      );
+    }
+
+    /* Check for duplicate (same subsection + resource type) */
+    const existing = await sql`
+      SELECT id FROM content_resources
+      WHERE subsection_id = ${subsectionId} AND resource_type = ${resourceType}
+      LIMIT 1
+    `;
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        {
+          error: `A "${resourceType.replace(/_/g, " ")}" resource already exists for this topic. Please edit the existing one instead.`,
+        },
+        { status: 409 }
       );
     }
 
@@ -177,10 +210,12 @@ export async function POST(request) {
       RETURNING id
     `;
 
+    logger.info("api/content POST", `Resource created #${inserted[0]?.id} by ${session.username}`);
     return NextResponse.json({ success: true, id: inserted[0]?.id });
-  } catch {
+  } catch (error) {
+    logger.error("api/content POST", error);
     return NextResponse.json(
-      { error: "Unable to save this link right now." },
+      { error: "Unable to save this resource right now." },
       { status: 500 }
     );
   }

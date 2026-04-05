@@ -3,115 +3,147 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const ROLE_HOME = {
+  admin: "/admin",
+  teacher: "/dashboard",
+  developer: "/dashboard",
+};
+
+function LogoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setLoading(true);
-    setMessage("");
+    setError("");
 
     try {
       const response = await fetch("/api/auth/signin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.error || "Sign in failed.");
+        setError(data.error || "Sign in failed.");
         return;
       }
 
-      setMessage(`Signed in as ${data.username}. Redirecting...`);
-      setPassword("");
-      router.push("/dashboard");
+      const destination = ROLE_HOME[data.role] || "/dashboard";
+      router.push(destination);
       router.refresh();
     } catch {
-      setMessage("Could not reach server. Please try again.");
+      setError("Could not reach server. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8">
-      <div className="mx-auto mb-4 w-full max-w-3xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-semibold">Important Submission Rules</p>
-        <p className="mt-1">
-          Use exact subsection naming for files and submit only valid Google Drive links
-          that are accessible.
-        </p>
-        <p className="mt-1">
-          Suggested naming format: SubsectionCode_ResourceType_Version (example:
-          1.01_video_v1).
-        </p>
+    <main className="login-page">
+      {/* Left Hero Panel */}
+      <div className="login-hero">
+        <div className="login-hero-bg" />
+        <div className="login-hero-grid" />
+        <div className="login-hero-content">
+          <div className="login-hero-badge">
+            <span className="dot" />
+            Content Management Platform
+          </div>
+          <h2>
+            Build your CDRE
+            <br />
+            prep library with
+            <br />
+            your team.
+          </h2>
+          <p>
+            Organize study materials, track submissions, and collaborate
+            on exam preparation content — all in one place.
+          </p>
+
+          <div style={{ marginTop: 40, display: "flex", gap: 32 }}>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "white", letterSpacing: "-0.03em" }}>10</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Sections</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "white", letterSpacing: "-0.03em" }}>80+</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Topics</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: "white", letterSpacing: "-0.03em" }}>7</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>Resource Types</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <section className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Sign in</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Enter your username and password to continue.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label
-              htmlFor="username"
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              Username
-            </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-slate-300 focus:ring"
-              required
-            />
+      {/* Right Form Panel */}
+      <div className="login-form-panel">
+        <div className="login-form-wrapper">
+          <div className="login-logo">
+            <LogoIcon />
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none ring-slate-300 focus:ring"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2 font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-
-        {message ? (
-          <p className="mt-4 text-sm text-slate-700" aria-live="polite">
-            {message}
+          <h1 className="login-title">Welcome back</h1>
+          <p className="login-subtitle">
+            Sign in to manage your CDRE prep content.
           </p>
-        ) : null}
-      </section>
+
+          <form onSubmit={handleSubmit} className="login-form">
+            <div>
+              <label htmlFor="username" className="label">Username</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input"
+                placeholder="Enter your username"
+                required
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="label">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input"
+                placeholder="Enter your password"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && <div className="login-error">{error}</div>}
+
+            <button type="submit" disabled={loading} className="login-btn">
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }

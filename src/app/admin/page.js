@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import DashboardClient from "./dashboard-client";
+import AdminClient from "./admin-client";
 
-export default async function DashboardPage() {
+export default async function AdminPage() {
   const cookieStore = await cookies();
   const raw = cookieStore.get("session_user")?.value;
 
@@ -22,5 +22,9 @@ export default async function DashboardPage() {
     role = "";
   }
 
-  return <DashboardClient username={username} role={role} />;
+  if (role !== "admin" && role !== "developer") {
+    redirect("/dashboard");
+  }
+
+  return <AdminClient username={username} role={role} />;
 }

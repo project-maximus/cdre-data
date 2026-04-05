@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
-import { requireSessionUser } from "@/lib/session";
-
-const ALLOWED_SOURCE_MODES = new Set(["drive_link", "ai_generated"]);
-
-function isGoogleDriveUrl(input) {
-  try {
-    const url = new URL(input);
-    const host = url.hostname.toLowerCase();
-    return host.includes("drive.google.com") || host.includes("docs.google.com");
-  } catch {
-    return false;
-  }
-}
+import { requireSessionUser, requireRole } from "@/lib/session";
+import { logger } from "@/lib/logger";
+import { ALLOWED_SOURCE_MODES, isGoogleDriveUrl } from "@/lib/validate";
 
 export async function PATCH(request, context) {
   const session = requireSessionUser(request);
@@ -43,7 +33,7 @@ export async function PATCH(request, context) {
       );
     }
 
-    await sql`
+    const updated = await sql`
       UPDATE content_resources
       SET source_mode = ${normalizedSourceMode},
           drive_url = ${normalizedSourceMode === "drive_link" ? driveUrl : null},
@@ -52,12 +42,56 @@ export async function PATCH(request, context) {
           updated_by = ${session.username},
           updated_at = NOW()
       WHERE id = ${id}
+      RETURNING id
     `;
 
+    if (!updated.length) {
+      return NextResponse.json({ error: "Resource not found." }, { status: 404 });
+    }
+
+    logger.info("api/content/resources PATCH", `Resource #${id} updated by ${session.username}`);
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    logger.error("api/content/resources PATCH", error);
     return NextResponse.json(
-      { error: "Unable to update status right now." },
+      { error: "Unable to update this resource right now." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request, context) {
+  const session = requireRole(request, ["admin", "developer"]);
+  if (!session.ok) {
+    if (session.reason === "forbidden") {
+      return NextResponse.json({ error: "Only admins can delete resources." }, { status: 403 });
+    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const sql = getSql();
+    const resolvedParams = await context.params;
+    const id = Number(resolvedParams?.id);
+
+    if (!Number.isInteger(id)) {
+      return NextResponse.json({ error: "Invalid resource id." }, { status: 400 });
+    }
+
+    const deleted = await sql`
+      DELETE FROM content_resources WHERE id = ${id} RETURNING id
+    `;
+
+    if (!deleted.length) {
+      return NextResponse.json({ error: "Resource not found." }, { status: 404 });
+    }
+
+    logger.info("api/content/resources DELETE", `Resource #${id} deleted by ${session.username}`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error("api/content/resources DELETE", error);
+    return NextResponse.json(
+      { error: "Unable to delete this resource right now." },
       { status: 500 }
     );
   }
