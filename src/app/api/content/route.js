@@ -13,6 +13,7 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 const ALLOWED_STATUSES = new Set(["not_submitted", "resubmit", "done"]);
+const ALLOWED_SOURCE_MODES = new Set(["drive_link", "ai_generated"]);
 
 function isGoogleDriveUrl(input) {
   try {
@@ -45,6 +46,7 @@ export async function GET(request) {
         ss.sort_order AS subsection_order,
         r.id AS resource_id,
         r.resource_type,
+        r.source_mode,
         r.drive_url,
         r.status,
         r.created_by,
@@ -91,6 +93,7 @@ export async function GET(request) {
         subsection.resources.push({
           id: row.resource_id,
           resourceType: row.resource_type,
+          sourceMode: row.source_mode,
           driveUrl: row.drive_url,
           status: row.status,
           createdBy: row.created_by,
@@ -104,6 +107,7 @@ export async function GET(request) {
       sections: Array.from(sectionMap.values()),
       statuses: Array.from(ALLOWED_STATUSES),
       resourceTypes: Array.from(ALLOWED_TYPES),
+      sourceModes: Array.from(ALLOWED_SOURCE_MODES),
     });
   } catch {
     return NextResponse.json(
@@ -121,9 +125,10 @@ export async function POST(request) {
 
   try {
     const sql = getSql();
-    const { subsectionId, resourceType, driveUrl } = await request.json();
+    const { subsectionId, resourceType, sourceMode, driveUrl } = await request.json();
+    const normalizedSourceMode = sourceMode || "drive_link";
 
-    if (!subsectionId || !resourceType || !driveUrl) {
+    if (!subsectionId || !resourceType || !normalizedSourceMode) {
       return NextResponse.json(
         { error: "All fields are required." },
         { status: 400 }
@@ -134,7 +139,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid resource type." }, { status: 400 });
     }
 
-    if (!isGoogleDriveUrl(driveUrl)) {
+    if (!ALLOWED_SOURCE_MODES.has(normalizedSourceMode)) {
+      return NextResponse.json({ error: "Invalid source mode." }, { status: 400 });
+    }
+
+    if (normalizedSourceMode === "drive_link" && !isGoogleDriveUrl(driveUrl)) {
       return NextResponse.json(
         { error: "Please provide a valid Google Drive link." },
         { status: 400 }
@@ -145,6 +154,7 @@ export async function POST(request) {
       INSERT INTO content_resources (
         subsection_id,
         resource_type,
+        source_mode,
         drive_url,
         status,
         created_by,
@@ -153,7 +163,8 @@ export async function POST(request) {
       VALUES (
         ${subsectionId},
         ${resourceType},
-        ${driveUrl},
+        ${normalizedSourceMode},
+        ${normalizedSourceMode === "drive_link" ? driveUrl : null},
         ${"done"},
         ${session.username},
         ${session.username}

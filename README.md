@@ -81,5 +81,8 @@ This creates:
 
 - Sign in and open `/dashboard`.
 - Choose a section and subsection.
-- Add a Google Drive link with a resource type and workflow status.
+- Choose one source mode:
+	- Google Drive Link
+	- Use AI Generated Stuff
+- If Google Drive mode is selected, add a valid Drive link.
 - Status values: `not_submitted`, `resubmit`, `done`.

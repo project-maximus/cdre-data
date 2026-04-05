@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { requireSessionUser } from "@/lib/session";
 
+const ALLOWED_SOURCE_MODES = new Set(["drive_link", "ai_generated"]);
+
 function isGoogleDriveUrl(input) {
   try {
     const url = new URL(input);
@@ -20,7 +22,8 @@ export async function PATCH(request, context) {
 
   try {
     const sql = getSql();
-    const { driveUrl } = await request.json();
+    const { sourceMode, driveUrl } = await request.json();
+    const normalizedSourceMode = sourceMode || "drive_link";
     const resolvedParams = await context.params;
     const id = Number(resolvedParams?.id);
 
@@ -28,7 +31,11 @@ export async function PATCH(request, context) {
       return NextResponse.json({ error: "Invalid resource id." }, { status: 400 });
     }
 
-    if (!driveUrl || !isGoogleDriveUrl(driveUrl)) {
+    if (!ALLOWED_SOURCE_MODES.has(normalizedSourceMode)) {
+      return NextResponse.json({ error: "Invalid source mode." }, { status: 400 });
+    }
+
+    if (normalizedSourceMode === "drive_link" && !isGoogleDriveUrl(driveUrl)) {
       return NextResponse.json(
         { error: "Please provide a valid Google Drive link." },
         { status: 400 }
@@ -37,7 +44,8 @@ export async function PATCH(request, context) {
 
     await sql`
       UPDATE content_resources
-      SET drive_url = ${driveUrl},
+      SET source_mode = ${normalizedSourceMode},
+          drive_url = ${normalizedSourceMode === "drive_link" ? driveUrl : null},
           status = ${"resubmit"},
           updated_by = ${session.username},
           updated_at = NOW()

@@ -267,7 +267,8 @@ async function main() {
           'other'
         )
       ),
-      drive_url TEXT NOT NULL,
+      source_mode TEXT NOT NULL DEFAULT 'drive_link' CHECK (source_mode IN ('drive_link', 'ai_generated')),
+      drive_url TEXT,
       status TEXT NOT NULL DEFAULT 'not_submitted' CHECK (status IN ('not_submitted', 'resubmit', 'done')),
       created_by TEXT NOT NULL,
       updated_by TEXT NOT NULL,
@@ -279,6 +280,27 @@ async function main() {
   await sql`
     ALTER TABLE content_resources
     ALTER COLUMN status SET DEFAULT 'not_submitted'
+  `;
+
+  await sql`
+    ALTER TABLE content_resources
+    ADD COLUMN IF NOT EXISTS source_mode TEXT NOT NULL DEFAULT 'drive_link'
+  `;
+
+  await sql`
+    ALTER TABLE content_resources
+    DROP CONSTRAINT IF EXISTS content_resources_source_mode_check
+  `;
+
+  await sql`
+    ALTER TABLE content_resources
+    ADD CONSTRAINT content_resources_source_mode_check
+    CHECK (source_mode IN ('drive_link', 'ai_generated'))
+  `;
+
+  await sql`
+    ALTER TABLE content_resources
+    ALTER COLUMN drive_url DROP NOT NULL
   `;
 
   for (let sectionIndex = 0; sectionIndex < CONTENT.length; sectionIndex += 1) {

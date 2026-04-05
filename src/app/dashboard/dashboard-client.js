@@ -13,6 +13,11 @@ const RESOURCE_LABELS = {
   other: "Other",
 };
 
+const SOURCE_MODE_LABELS = {
+  drive_link: "Google Drive Link",
+  ai_generated: "Use AI Generated Stuff",
+};
+
 const STATUS_LABELS = {
   not_submitted: "Not Submitted",
   resubmit: "Resubmit",
@@ -26,6 +31,7 @@ export default function DashboardClient({ username }) {
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
   const [resourceTypes, setResourceTypes] = useState([]);
+  const [sourceModes, setSourceModes] = useState([]);
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [globalMessage, setGlobalMessage] = useState("");
   const [forms, setForms] = useState({});
@@ -56,6 +62,7 @@ export default function DashboardClient({ username }) {
 
       setSections(data.sections || []);
       setResourceTypes(data.resourceTypes || []);
+      setSourceModes(data.sourceModes || []);
 
       if (data.sections?.length) {
         setActiveSectionId((prev) => prev || data.sections[0].id);
@@ -70,6 +77,7 @@ export default function DashboardClient({ username }) {
   function getFormState(subsectionId) {
     return (
       forms[subsectionId] || {
+        sourceMode: sourceModes[0] || "drive_link",
         driveUrl: "",
         resourceType: resourceTypes[0] || "study_notes",
       }
@@ -91,6 +99,11 @@ export default function DashboardClient({ username }) {
     event.preventDefault();
     const state = getFormState(subsectionId);
 
+    if (state.sourceMode === "drive_link" && !state.driveUrl) {
+      setGlobalMessage("Google Drive link is required for Drive Link mode.");
+      return;
+    }
+
     setSaving(true);
     setGlobalMessage("");
 
@@ -100,6 +113,7 @@ export default function DashboardClient({ username }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subsectionId,
+          sourceMode: state.sourceMode,
           driveUrl: state.driveUrl,
           resourceType: state.resourceType,
         }),
@@ -131,7 +145,10 @@ export default function DashboardClient({ username }) {
   function startEditing(resource) {
     setEditing((prev) => ({
       ...prev,
-      [resource.id]: resource.driveUrl,
+      [resource.id]: {
+        sourceMode: resource.sourceMode || "drive_link",
+        driveUrl: resource.driveUrl || "",
+      },
     }));
   }
 
@@ -144,10 +161,12 @@ export default function DashboardClient({ username }) {
   }
 
   async function saveEditedResource(resourceId) {
-    const driveUrl = editing[resourceId];
+    const state = editing[resourceId];
+    const driveUrl = state?.driveUrl || "";
+    const sourceMode = state?.sourceMode || "drive_link";
 
-    if (!driveUrl) {
-      setGlobalMessage("Google Drive link is required.");
+    if (sourceMode === "drive_link" && !driveUrl) {
+      setGlobalMessage("Google Drive link is required for Drive Link mode.");
       return;
     }
 
@@ -158,7 +177,7 @@ export default function DashboardClient({ username }) {
       const response = await fetch(`/api/content/resources/${resourceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ driveUrl }),
+        body: JSON.stringify({ sourceMode, driveUrl }),
       });
       const data = await response.json();
 
@@ -209,8 +228,8 @@ export default function DashboardClient({ username }) {
               SubsectionCode_ResourceType_Version.
             </p>
             <p className="mt-1">
-              Submit only Google Drive links, and make sure link permissions allow access
-              (Viewer or appropriate role) before submitting.
+              You can choose Google Drive Link mode or Use AI Generated Stuff mode.
+              For Drive Link mode, make sure link permissions allow access.
             </p>
           </div>
         </div>
@@ -269,17 +288,36 @@ export default function DashboardClient({ username }) {
 
                       <form
                         onSubmit={(event) => addResource(event, subsection.id)}
-                        className="mt-3 grid gap-3 md:grid-cols-[1fr_170px_120px]"
+                        className="mt-3 grid gap-3 md:grid-cols-[170px_1fr_170px_120px]"
                       >
+                        <select
+                          value={form.sourceMode}
+                          onChange={(event) =>
+                            updateForm(subsection.id, "sourceMode", event.target.value)
+                          }
+                          className="rounded-lg border border-slate-300 px-3 py-2"
+                        >
+                          {sourceModes.map((mode) => (
+                            <option key={mode} value={mode}>
+                              {SOURCE_MODE_LABELS[mode] || mode}
+                            </option>
+                          ))}
+                        </select>
+
                         <input
                           type="url"
-                          placeholder="Google Drive link"
+                          placeholder={
+                            form.sourceMode === "ai_generated"
+                              ? "No link needed for AI mode"
+                              : "Google Drive link"
+                          }
                           value={form.driveUrl}
                           onChange={(event) =>
                             updateForm(subsection.id, "driveUrl", event.target.value)
                           }
                           className="rounded-lg border border-slate-300 px-3 py-2"
-                          required
+                          required={form.sourceMode === "drive_link"}
+                          disabled={form.sourceMode === "ai_generated"}
                         />
 
                         <select
@@ -318,6 +356,9 @@ export default function DashboardClient({ username }) {
                             className="rounded-lg border border-slate-200 bg-slate-50 p-3"
                           >
                             <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-800">
+                                {SOURCE_MODE_LABELS[resource.sourceMode] || resource.sourceMode}
+                              </span>
                               <span className="rounded bg-white px-2 py-1 text-xs font-medium">
                                 {RESOURCE_LABELS[resource.resourceType] || resource.resourceType}
                               </span>
@@ -331,16 +372,50 @@ export default function DashboardClient({ username }) {
 
                             {editing[resource.id] !== undefined ? (
                               <div className="mt-2 space-y-2">
-                                <input
-                                  type="url"
-                                  value={editing[resource.id]}
+                                <select
+                                  value={editing[resource.id].sourceMode}
                                   onChange={(event) =>
                                     setEditing((prev) => ({
                                       ...prev,
-                                      [resource.id]: event.target.value,
+                                      [resource.id]: {
+                                        ...prev[resource.id],
+                                        sourceMode: event.target.value,
+                                        driveUrl:
+                                          event.target.value === "ai_generated"
+                                            ? ""
+                                            : prev[resource.id].driveUrl,
+                                      },
                                     }))
                                   }
                                   className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                                >
+                                  {sourceModes.map((mode) => (
+                                    <option key={mode} value={mode}>
+                                      {SOURCE_MODE_LABELS[mode] || mode}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <input
+                                  type="url"
+                                  value={editing[resource.id].driveUrl}
+                                  onChange={(event) =>
+                                    setEditing((prev) => ({
+                                      ...prev,
+                                      [resource.id]: {
+                                        ...prev[resource.id],
+                                        driveUrl: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                                  required={editing[resource.id].sourceMode === "drive_link"}
+                                  disabled={editing[resource.id].sourceMode === "ai_generated"}
+                                  placeholder={
+                                    editing[resource.id].sourceMode === "ai_generated"
+                                      ? "No link needed for AI mode"
+                                      : "Google Drive link"
+                                  }
                                 />
                                 <div className="flex gap-2">
                                   <button
@@ -362,14 +437,20 @@ export default function DashboardClient({ username }) {
                               </div>
                             ) : (
                               <>
-                                <a
-                                  href={resource.driveUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-2 block break-all text-sm text-blue-700 underline"
-                                >
-                                  {resource.driveUrl}
-                                </a>
+                                {resource.sourceMode === "drive_link" ? (
+                                  <a
+                                    href={resource.driveUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-2 block break-all text-sm text-blue-700 underline"
+                                  >
+                                    {resource.driveUrl}
+                                  </a>
+                                ) : (
+                                  <p className="mt-2 text-sm text-slate-700">
+                                    AI generated content requested for this item.
+                                  </p>
+                                )}
                                 <div className="mt-2">
                                   <button
                                     type="button"
