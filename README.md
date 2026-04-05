@@ -85,4 +85,5 @@ This creates:
 	- Google Drive Link
 	- Use AI Generated Stuff
 - If Google Drive mode is selected, add a valid Drive link.
+- If AI mode is selected, you can add optional script/explanation text.
 - Status values: `not_submitted`, `resubmit`, `done`.

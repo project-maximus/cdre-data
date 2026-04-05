@@ -22,8 +22,9 @@ export async function PATCH(request, context) {
 
   try {
     const sql = getSql();
-    const { sourceMode, driveUrl } = await request.json();
+    const { sourceMode, driveUrl, aiNote } = await request.json();
     const normalizedSourceMode = sourceMode || "drive_link";
+    const normalizedAiNote = (aiNote || "").trim();
     const resolvedParams = await context.params;
     const id = Number(resolvedParams?.id);
 
@@ -46,6 +47,7 @@ export async function PATCH(request, context) {
       UPDATE content_resources
       SET source_mode = ${normalizedSourceMode},
           drive_url = ${normalizedSourceMode === "drive_link" ? driveUrl : null},
+          ai_note = ${normalizedSourceMode === "ai_generated" ? normalizedAiNote : null},
           status = ${"resubmit"},
           updated_by = ${session.username},
           updated_at = NOW()

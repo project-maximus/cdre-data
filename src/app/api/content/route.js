@@ -48,6 +48,7 @@ export async function GET(request) {
         r.resource_type,
         r.source_mode,
         r.drive_url,
+        r.ai_note,
         r.status,
         r.created_by,
         r.updated_at
@@ -95,6 +96,7 @@ export async function GET(request) {
           resourceType: row.resource_type,
           sourceMode: row.source_mode,
           driveUrl: row.drive_url,
+          aiNote: row.ai_note,
           status: row.status,
           createdBy: row.created_by,
           updatedAt: row.updated_at,
@@ -125,8 +127,9 @@ export async function POST(request) {
 
   try {
     const sql = getSql();
-    const { subsectionId, resourceType, sourceMode, driveUrl } = await request.json();
+    const { subsectionId, resourceType, sourceMode, driveUrl, aiNote } = await request.json();
     const normalizedSourceMode = sourceMode || "drive_link";
+    const normalizedAiNote = (aiNote || "").trim();
 
     if (!subsectionId || !resourceType || !normalizedSourceMode) {
       return NextResponse.json(
@@ -156,6 +159,7 @@ export async function POST(request) {
         resource_type,
         source_mode,
         drive_url,
+        ai_note,
         status,
         created_by,
         updated_by
@@ -165,6 +169,7 @@ export async function POST(request) {
         ${resourceType},
         ${normalizedSourceMode},
         ${normalizedSourceMode === "drive_link" ? driveUrl : null},
+        ${normalizedSourceMode === "ai_generated" ? normalizedAiNote : null},
         ${"done"},
         ${session.username},
         ${session.username}

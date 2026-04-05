@@ -79,6 +79,7 @@ export default function DashboardClient({ username }) {
       forms[subsectionId] || {
         sourceMode: sourceModes[0] || "drive_link",
         driveUrl: "",
+        aiNote: "",
         resourceType: resourceTypes[0] || "study_notes",
       }
     );
@@ -115,6 +116,7 @@ export default function DashboardClient({ username }) {
           subsectionId,
           sourceMode: state.sourceMode,
           driveUrl: state.driveUrl,
+          aiNote: state.aiNote,
           resourceType: state.resourceType,
         }),
       });
@@ -130,6 +132,7 @@ export default function DashboardClient({ username }) {
         [subsectionId]: {
           ...state,
           driveUrl: "",
+          aiNote: "",
         },
       }));
 
@@ -148,6 +151,7 @@ export default function DashboardClient({ username }) {
       [resource.id]: {
         sourceMode: resource.sourceMode || "drive_link",
         driveUrl: resource.driveUrl || "",
+        aiNote: resource.aiNote || "",
       },
     }));
   }
@@ -163,6 +167,7 @@ export default function DashboardClient({ username }) {
   async function saveEditedResource(resourceId) {
     const state = editing[resourceId];
     const driveUrl = state?.driveUrl || "";
+    const aiNote = state?.aiNote || "";
     const sourceMode = state?.sourceMode || "drive_link";
 
     if (sourceMode === "drive_link" && !driveUrl) {
@@ -177,7 +182,7 @@ export default function DashboardClient({ username }) {
       const response = await fetch(`/api/content/resources/${resourceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceMode, driveUrl }),
+        body: JSON.stringify({ sourceMode, driveUrl, aiNote }),
       });
       const data = await response.json();
 
@@ -343,6 +348,17 @@ export default function DashboardClient({ username }) {
                         </button>
                       </form>
 
+                      {form.sourceMode === "ai_generated" ? (
+                        <textarea
+                          value={form.aiNote}
+                          onChange={(event) =>
+                            updateForm(subsection.id, "aiNote", event.target.value)
+                          }
+                          placeholder="Optional AI prompt/script/explanation for this subsection"
+                          className="mt-3 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2"
+                        />
+                      ) : null}
+
                       <div className="mt-4 space-y-2">
                         {subsection.resources.length ? null : (
                           <p className="text-sm text-slate-500">
@@ -384,6 +400,10 @@ export default function DashboardClient({ username }) {
                                           event.target.value === "ai_generated"
                                             ? ""
                                             : prev[resource.id].driveUrl,
+                                        aiNote:
+                                          event.target.value === "drive_link"
+                                            ? ""
+                                            : prev[resource.id].aiNote,
                                       },
                                     }))
                                   }
@@ -417,6 +437,24 @@ export default function DashboardClient({ username }) {
                                       : "Google Drive link"
                                   }
                                 />
+
+                                {editing[resource.id].sourceMode === "ai_generated" ? (
+                                  <textarea
+                                    value={editing[resource.id].aiNote}
+                                    onChange={(event) =>
+                                      setEditing((prev) => ({
+                                        ...prev,
+                                        [resource.id]: {
+                                          ...prev[resource.id],
+                                          aiNote: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    placeholder="Optional AI prompt/script/explanation"
+                                    className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                                  />
+                                ) : null}
+
                                 <div className="flex gap-2">
                                   <button
                                     type="button"
@@ -447,9 +485,16 @@ export default function DashboardClient({ username }) {
                                     {resource.driveUrl}
                                   </a>
                                 ) : (
-                                  <p className="mt-2 text-sm text-slate-700">
-                                    AI generated content requested for this item.
-                                  </p>
+                                  <div className="mt-2 space-y-1">
+                                    <p className="text-sm text-slate-700">
+                                      AI generated content requested for this item.
+                                    </p>
+                                    {resource.aiNote ? (
+                                      <p className="rounded bg-white p-2 text-sm text-slate-800">
+                                        {resource.aiNote}
+                                      </p>
+                                    ) : null}
+                                  </div>
                                 )}
                                 <div className="mt-2">
                                   <button
