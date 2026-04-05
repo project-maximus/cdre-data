@@ -21,6 +21,7 @@ const STATUS_LABELS = {
 
 export default function DashboardClient({ username }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
@@ -31,6 +32,7 @@ export default function DashboardClient({ username }) {
   const [editing, setEditing] = useState({});
 
   useEffect(() => {
+    setMounted(true);
     loadData();
   }, []);
 
@@ -198,19 +200,21 @@ export default function DashboardClient({ username }) {
         </div>
       </header>
 
-      <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">Warning: Follow Exact Naming + Valid Drive Links</p>
-          <p className="mt-1">
-            Use exact subsection naming and a consistent file name pattern such as
-            SubsectionCode_ResourceType_Version.
-          </p>
-          <p className="mt-1">
-            Submit only Google Drive links, and make sure link permissions allow access
-            (Viewer or appropriate role) before submitting.
-          </p>
+      {mounted ? (
+        <div className="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-semibold">Warning: Follow Exact Naming + Valid Drive Links</p>
+            <p className="mt-1">
+              Use exact subsection naming and a consistent file name pattern such as
+              SubsectionCode_ResourceType_Version.
+            </p>
+            <p className="mt-1">
+              Submit only Google Drive links, and make sure link permissions allow access
+              (Viewer or appropriate role) before submitting.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[300px_1fr] lg:px-8">
         <aside className="rounded-xl border border-slate-200 bg-white p-3">
