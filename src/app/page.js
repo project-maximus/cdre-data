@@ -43,8 +43,20 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <main className="min-h-screen bg-slate-100 px-4 py-8">
+      <div className="mx-auto mb-4 w-full max-w-3xl rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-semibold">Important Submission Rules</p>
+        <p className="mt-1">
+          Use exact subsection naming for files and submit only valid Google Drive links
+          that are accessible.
+        </p>
+        <p className="mt-1">
+          Suggested naming format: SubsectionCode_ResourceType_Version (example:
+          1.01_video_v1).
+        </p>
+      </div>
+
+      <section className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Sign in</h1>
         <p className="mt-2 text-sm text-slate-600">
           Enter your username and password to continue.
