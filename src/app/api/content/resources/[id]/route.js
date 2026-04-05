@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { requireSessionUser } from "@/lib/session";
 
-const ALLOWED_STATUSES = new Set(["not_submitted", "resubmit", "done"]);
+function isGoogleDriveUrl(input) {
+  try {
+    const url = new URL(input);
+    const host = url.hostname.toLowerCase();
+    return host.includes("drive.google.com") || host.includes("docs.google.com");
+  } catch {
+    return false;
+  }
+}
 
 export async function PATCH(request, context) {
   const session = requireSessionUser(request);
@@ -12,7 +20,7 @@ export async function PATCH(request, context) {
 
   try {
     const sql = getSql();
-    const { status } = await request.json();
+    const { driveUrl } = await request.json();
     const resolvedParams = await context.params;
     const id = Number(resolvedParams?.id);
 
@@ -20,13 +28,17 @@ export async function PATCH(request, context) {
       return NextResponse.json({ error: "Invalid resource id." }, { status: 400 });
     }
 
-    if (!ALLOWED_STATUSES.has(status)) {
-      return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    if (!driveUrl || !isGoogleDriveUrl(driveUrl)) {
+      return NextResponse.json(
+        { error: "Please provide a valid Google Drive link." },
+        { status: 400 }
+      );
     }
 
     await sql`
       UPDATE content_resources
-      SET status = ${status},
+      SET drive_url = ${driveUrl},
+          status = ${"resubmit"},
           updated_by = ${session.username},
           updated_at = NOW()
       WHERE id = ${id}

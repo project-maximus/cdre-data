@@ -268,12 +268,17 @@ async function main() {
         )
       ),
       drive_url TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('not_submitted', 'resubmit', 'done')),
+      status TEXT NOT NULL DEFAULT 'not_submitted' CHECK (status IN ('not_submitted', 'resubmit', 'done')),
       created_by TEXT NOT NULL,
       updated_by TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    ALTER TABLE content_resources
+    ALTER COLUMN status SET DEFAULT 'not_submitted'
   `;
 
   for (let sectionIndex = 0; sectionIndex < CONTENT.length; sectionIndex += 1) {

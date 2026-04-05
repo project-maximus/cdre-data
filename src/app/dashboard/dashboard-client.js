@@ -25,10 +25,10 @@ export default function DashboardClient({ username }) {
   const [saving, setSaving] = useState(false);
   const [sections, setSections] = useState([]);
   const [resourceTypes, setResourceTypes] = useState([]);
-  const [statuses, setStatuses] = useState([]);
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [globalMessage, setGlobalMessage] = useState("");
   const [forms, setForms] = useState({});
+  const [editing, setEditing] = useState({});
 
   useEffect(() => {
     loadData();
@@ -54,7 +54,6 @@ export default function DashboardClient({ username }) {
 
       setSections(data.sections || []);
       setResourceTypes(data.resourceTypes || []);
-      setStatuses(data.statuses || []);
 
       if (data.sections?.length) {
         setActiveSectionId((prev) => prev || data.sections[0].id);
@@ -71,7 +70,6 @@ export default function DashboardClient({ username }) {
       forms[subsectionId] || {
         driveUrl: "",
         resourceType: resourceTypes[0] || "study_notes",
-        status: statuses[0] || "not_submitted",
       }
     );
   }
@@ -102,7 +100,6 @@ export default function DashboardClient({ username }) {
           subsectionId,
           driveUrl: state.driveUrl,
           resourceType: state.resourceType,
-          status: state.status,
         }),
       });
 
@@ -120,7 +117,7 @@ export default function DashboardClient({ username }) {
         },
       }));
 
-      setGlobalMessage("Link saved.");
+      setGlobalMessage("Submitted and marked as Done.");
       await loadData();
     } catch {
       setGlobalMessage("Could not save this link.");
@@ -129,7 +126,29 @@ export default function DashboardClient({ username }) {
     }
   }
 
-  async function updateStatus(resourceId, status) {
+  function startEditing(resource) {
+    setEditing((prev) => ({
+      ...prev,
+      [resource.id]: resource.driveUrl,
+    }));
+  }
+
+  function cancelEditing(resourceId) {
+    setEditing((prev) => {
+      const next = { ...prev };
+      delete next[resourceId];
+      return next;
+    });
+  }
+
+  async function saveEditedResource(resourceId) {
+    const driveUrl = editing[resourceId];
+
+    if (!driveUrl) {
+      setGlobalMessage("Google Drive link is required.");
+      return;
+    }
+
     setSaving(true);
     setGlobalMessage("");
 
@@ -137,19 +156,20 @@ export default function DashboardClient({ username }) {
       const response = await fetch(`/api/content/resources/${resourceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ driveUrl }),
       });
       const data = await response.json();
 
       if (!response.ok) {
-        setGlobalMessage(data.error || "Could not update status.");
+        setGlobalMessage(data.error || "Could not update this link.");
         return;
       }
 
-      setGlobalMessage("Status updated.");
+      cancelEditing(resourceId);
+      setGlobalMessage("Updated and marked as Resubmitted.");
       await loadData();
     } catch {
-      setGlobalMessage("Could not update status.");
+      setGlobalMessage("Could not update this link.");
     } finally {
       setSaving(false);
     }
@@ -209,7 +229,7 @@ export default function DashboardClient({ username }) {
               <div className="mb-6">
                 <h2 className="text-2xl font-semibold">{activeSection.title}</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Add Google Drive resources for each subsection and track status.
+                  Default status is Not Submitted. First save becomes Done. Editing marks it as Resubmitted.
                 </p>
                 {globalMessage ? (
                   <p className="mt-2 text-sm text-slate-700" aria-live="polite">
@@ -231,7 +251,7 @@ export default function DashboardClient({ username }) {
 
                       <form
                         onSubmit={(event) => addResource(event, subsection.id)}
-                        className="mt-3 grid gap-3 md:grid-cols-[1fr_170px_170px_120px]"
+                        className="mt-3 grid gap-3 md:grid-cols-[1fr_170px_120px]"
                       >
                         <input
                           type="url"
@@ -258,32 +278,20 @@ export default function DashboardClient({ username }) {
                           ))}
                         </select>
 
-                        <select
-                          value={form.status}
-                          onChange={(event) =>
-                            updateForm(subsection.id, "status", event.target.value)
-                          }
-                          className="rounded-lg border border-slate-300 px-3 py-2"
-                        >
-                          {statuses.map((status) => (
-                            <option key={status} value={status}>
-                              {STATUS_LABELS[status] || status}
-                            </option>
-                          ))}
-                        </select>
-
                         <button
                           type="submit"
                           disabled={saving}
                           className="rounded-lg bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                         >
-                          Save
+                          Submit
                         </button>
                       </form>
 
                       <div className="mt-4 space-y-2">
                         {subsection.resources.length ? null : (
-                          <p className="text-sm text-slate-500">No links yet.</p>
+                          <p className="text-sm text-slate-500">
+                            No links yet. Status: <strong>{STATUS_LABELS.not_submitted}</strong>
+                          </p>
                         )}
 
                         {subsection.resources.map((resource) => (
@@ -295,36 +303,66 @@ export default function DashboardClient({ username }) {
                               <span className="rounded bg-white px-2 py-1 text-xs font-medium">
                                 {RESOURCE_LABELS[resource.resourceType] || resource.resourceType}
                               </span>
+                              <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800">
+                                {STATUS_LABELS[resource.status] || resource.status}
+                              </span>
                               <span className="text-xs text-slate-600">
                                 by {resource.createdBy}
                               </span>
                             </div>
 
-                            <a
-                              href={resource.driveUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 block break-all text-sm text-blue-700 underline"
-                            >
-                              {resource.driveUrl}
-                            </a>
-
-                            <div className="mt-2">
-                              <label className="mr-2 text-sm text-slate-600">Status:</label>
-                              <select
-                                value={resource.status}
-                                onChange={(event) =>
-                                  updateStatus(resource.id, event.target.value)
-                                }
-                                className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-                              >
-                                {statuses.map((status) => (
-                                  <option key={status} value={status}>
-                                    {STATUS_LABELS[status] || status}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                            {editing[resource.id] !== undefined ? (
+                              <div className="mt-2 space-y-2">
+                                <input
+                                  type="url"
+                                  value={editing[resource.id]}
+                                  onChange={(event) =>
+                                    setEditing((prev) => ({
+                                      ...prev,
+                                      [resource.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => saveEditedResource(resource.id)}
+                                    disabled={saving}
+                                    className="rounded bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-700 disabled:opacity-60"
+                                  >
+                                    Save Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => cancelEditing(resource.id)}
+                                    className="rounded border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <a
+                                  href={resource.driveUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-2 block break-all text-sm text-blue-700 underline"
+                                >
+                                  {resource.driveUrl}
+                                </a>
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditing(resource)}
+                                    className="rounded border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>
