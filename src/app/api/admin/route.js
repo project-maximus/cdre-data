@@ -3,6 +3,8 @@ import { getSql } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { logger } from "@/lib/logger";
 
+const HIDDEN_SECTION_TITLES = ["Admin and Back-End Structure", "Member Account Area"];
+
 export async function GET(request) {
   const session = requireRole(request, ["admin", "developer"]);
   if (!session.ok) {
@@ -26,15 +28,21 @@ export async function GET(request) {
     const stats = await sql`
       SELECT
         COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE status = 'done')::int AS done_count,
-        COUNT(*) FILTER (WHERE status = 'resubmit')::int AS resubmit_count,
-        COUNT(*) FILTER (WHERE status = 'not_submitted')::int AS not_submitted_count
-      FROM content_resources
+        COUNT(*) FILTER (WHERE r.status = 'done')::int AS done_count,
+        COUNT(*) FILTER (WHERE r.status = 'resubmit')::int AS resubmit_count,
+        COUNT(*) FILTER (WHERE r.status = 'not_submitted')::int AS not_submitted_count
+      FROM content_resources r
+      JOIN content_subsections ss ON ss.id = r.subsection_id
+      JOIN content_sections s ON s.id = ss.section_id
+      WHERE s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
     `;
 
     /* Total subsections (to calculate "not yet started") */
     const subsectionCount = await sql`
-      SELECT COUNT(*)::int AS total FROM content_subsections
+      SELECT COUNT(*)::int AS total
+      FROM content_subsections ss
+      JOIN content_sections s ON s.id = ss.section_id
+      WHERE s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
     `;
 
     /* Resources with filters */
@@ -50,6 +58,7 @@ export async function GET(request) {
         WHERE r.status = ${statusFilter}
           AND s.id = ${Number(sectionFilter)}
           AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -62,6 +71,7 @@ export async function GET(request) {
         WHERE r.status = ${statusFilter}
           AND s.id = ${Number(sectionFilter)}
           AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -72,6 +82,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter} AND s.id = ${Number(sectionFilter)}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -82,6 +93,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter} AND s.id = ${Number(sectionFilter)}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -92,6 +104,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter} AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -102,6 +115,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter} AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -112,6 +126,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE s.id = ${Number(sectionFilter)} AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -122,6 +137,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE s.id = ${Number(sectionFilter)} AND r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -132,6 +148,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -142,6 +159,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.status = ${statusFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -152,6 +170,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE s.id = ${Number(sectionFilter)}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -162,6 +181,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE s.id = ${Number(sectionFilter)}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -172,6 +192,7 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -182,12 +203,17 @@ export async function GET(request) {
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
         WHERE r.created_by = ${userFilter}
+          AND s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
       totalRows = await sql`
-        SELECT COUNT(*)::int AS total FROM content_resources
+        SELECT COUNT(*)::int AS total
+        FROM content_resources r
+        JOIN content_subsections ss ON ss.id = r.subsection_id
+        JOIN content_sections s ON s.id = ss.section_id
+        WHERE s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
       `;
       resources = await sql`
         SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
@@ -197,6 +223,7 @@ export async function GET(request) {
         FROM content_resources r
         JOIN content_subsections ss ON ss.id = r.subsection_id
         JOIN content_sections s ON s.id = ss.section_id
+        WHERE s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
         ORDER BY r.updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
@@ -204,12 +231,20 @@ export async function GET(request) {
 
     /* Sections list for filter dropdown */
     const sections = await sql`
-      SELECT id, title FROM content_sections ORDER BY sort_order
+      SELECT id, title
+      FROM content_sections
+      WHERE title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
+      ORDER BY sort_order
     `;
 
     /* Distinct users for filter dropdown */
     const users = await sql`
-      SELECT DISTINCT created_by FROM content_resources ORDER BY created_by
+      SELECT DISTINCT r.created_by
+      FROM content_resources r
+      JOIN content_subsections ss ON ss.id = r.subsection_id
+      JOIN content_sections s ON s.id = ss.section_id
+      WHERE s.title NOT IN (${HIDDEN_SECTION_TITLES[0]}, ${HIDDEN_SECTION_TITLES[1]})
+      ORDER BY r.created_by
     `;
 
     const total = totalRows[0]?.total || 0;
