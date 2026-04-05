@@ -113,7 +113,13 @@ function DashboardInner({ username, role }) {
   }
 
   function getForm(sid) {
-    return forms[sid] || { sourceMode: sourceModes[0] || "drive_link", driveUrl: "", aiNote: "", resourceType: resourceTypes[0] || "study_notes" };
+    return forms[sid] || {
+      sourceMode: sourceModes[0] || "drive_link",
+      driveUrl: "",
+      aiNote: "",
+      notes: "",
+      resourceType: resourceTypes[0] || "study_notes",
+    };
   }
 
   function updateForm(sid, key, value) {
@@ -128,11 +134,18 @@ function DashboardInner({ username, role }) {
     try {
       const res = await fetch("/api/content", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subsectionId: sid, sourceMode: s.sourceMode, driveUrl: s.driveUrl, aiNote: s.aiNote, resourceType: s.resourceType }),
+        body: JSON.stringify({
+          subsectionId: sid,
+          sourceMode: s.sourceMode,
+          driveUrl: s.driveUrl,
+          aiNote: s.aiNote,
+          notes: s.notes,
+          resourceType: s.resourceType,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Could not save."); return; }
-      setForms((p) => ({ ...p, [sid]: { ...s, driveUrl: "", aiNote: "" } }));
+      setForms((p) => ({ ...p, [sid]: { ...s, driveUrl: "", aiNote: "", notes: "" } }));
       toast.success("Resource submitted successfully.");
       await loadData();
     } catch { toast.error("Could not save resource."); }
@@ -140,7 +153,15 @@ function DashboardInner({ username, role }) {
   }
 
   function startEditing(r) {
-    setEditing((p) => ({ ...p, [r.id]: { sourceMode: r.sourceMode || "drive_link", driveUrl: r.driveUrl || "", aiNote: r.aiNote || "" } }));
+    setEditing((p) => ({
+      ...p,
+      [r.id]: {
+        sourceMode: r.sourceMode || "drive_link",
+        driveUrl: r.driveUrl || "",
+        aiNote: r.aiNote || "",
+        notes: r.notes || "",
+      },
+    }));
   }
 
   function cancelEditing(rid) { setEditing((p) => { const n = { ...p }; delete n[rid]; return n; }); }
@@ -152,7 +173,12 @@ function DashboardInner({ username, role }) {
     try {
       const res = await fetch(`/api/content/resources/${rid}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceMode: s.sourceMode, driveUrl: s.driveUrl, aiNote: s.aiNote }),
+        body: JSON.stringify({
+          sourceMode: s.sourceMode,
+          driveUrl: s.driveUrl,
+          aiNote: s.aiNote,
+          notes: s.notes,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || "Could not update."); return; }
@@ -295,6 +321,16 @@ function DashboardInner({ username, role }) {
                           {resourceTypes.map((t) => <option key={t} value={t}>{RESOURCE_LABELS[t] || t}</option>)}
                         </select>
                       </div>
+                      <div style={{ flex: 1, minWidth: 220 }}>
+                        <label className="label">Notes (optional)</label>
+                        <input
+                          type="text"
+                          value={form.notes}
+                          onChange={(e) => updateForm(sub.id, "notes", e.target.value)}
+                          className="input"
+                          placeholder="Any context for reviewers/admin"
+                        />
+                      </div>
                       <button type="submit" disabled={isSaving} className="btn btn-primary" style={{ height: 38 }}>
                         {isSaving ? "Saving..." : "Submit"}
                       </button>
@@ -318,6 +354,13 @@ function DashboardInner({ username, role }) {
                                     <input type="text" value={editing[r.id].aiNote} onChange={(e) => setEditing((p) => ({ ...p, [r.id]: { ...p[r.id], aiNote: e.target.value } }))} className="input" style={{ flex: 1, minWidth: 200 }} placeholder="Describe what AI content is needed..." />
                                   )}
                                 </div>
+                                <input
+                                  type="text"
+                                  value={editing[r.id].notes || ""}
+                                  onChange={(e) => setEditing((p) => ({ ...p, [r.id]: { ...p[r.id], notes: e.target.value } }))}
+                                  className="input"
+                                  placeholder="Notes (optional)"
+                                />
                                 <div style={{ display: "flex", gap: 6 }}>
                                   <button type="button" onClick={() => saveEdit(r.id)} disabled={saving[`e-${r.id}`]} className="btn btn-primary btn-sm">{saving[`e-${r.id}`] ? "Saving..." : "Save Changes"}</button>
                                   <button type="button" onClick={() => cancelEditing(r.id)} className="btn btn-ghost btn-sm">Cancel</button>
@@ -340,6 +383,12 @@ function DashboardInner({ username, role }) {
                                   <div style={{ marginTop: 8 }}>
                                     <p style={{ fontSize: 12, color: "var(--text-muted)" }}>AI-assisted content{r.aiNote ? ":" : " requested"}</p>
                                     {r.aiNote && <p style={{ fontSize: 13, color: "var(--text-secondary)", background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: "var(--radius-sm)", marginTop: 4, border: "1px solid var(--border-subtle)" }}>{r.aiNote}</p>}
+                                  </div>
+                                )}
+                                {r.notes && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Notes:</p>
+                                    <p style={{ fontSize: 13, color: "var(--text-secondary)", background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: "var(--radius-sm)", marginTop: 4, border: "1px solid var(--border-subtle)" }}>{r.notes}</p>
                                   </div>
                                 )}
                                 <div style={{ display: "flex", gap: 6, marginTop: 8 }}>

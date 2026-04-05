@@ -52,7 +52,7 @@ export async function GET(request) {
           AND r.created_by = ${userFilter}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -74,7 +74,7 @@ export async function GET(request) {
         WHERE r.status = ${statusFilter} AND s.id = ${Number(sectionFilter)}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -94,7 +94,7 @@ export async function GET(request) {
         WHERE r.status = ${statusFilter} AND r.created_by = ${userFilter}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -114,7 +114,7 @@ export async function GET(request) {
         WHERE s.id = ${Number(sectionFilter)} AND r.created_by = ${userFilter}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -134,7 +134,7 @@ export async function GET(request) {
         WHERE r.status = ${statusFilter}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -154,7 +154,7 @@ export async function GET(request) {
         WHERE s.id = ${Number(sectionFilter)}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -174,7 +174,7 @@ export async function GET(request) {
         WHERE r.created_by = ${userFilter}
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -190,7 +190,7 @@ export async function GET(request) {
         SELECT COUNT(*)::int AS total FROM content_resources
       `;
       resources = await sql`
-        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.status,
+        SELECT r.id, r.resource_type, r.source_mode, r.drive_url, r.ai_note, r.notes, r.status,
                r.created_by, r.updated_by, r.created_at, r.updated_at,
                ss.title AS subsection_title, ss.code AS subsection_code,
                s.title AS section_title, s.id AS section_id
@@ -225,6 +225,7 @@ export async function GET(request) {
         sourceMode: r.source_mode,
         driveUrl: r.drive_url,
         aiNote: r.ai_note,
+        notes: r.notes,
         status: r.status,
         createdBy: r.created_by,
         updatedBy: r.updated_by,

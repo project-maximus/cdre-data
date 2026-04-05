@@ -244,12 +244,19 @@ async function main() {
       source_mode TEXT NOT NULL DEFAULT 'drive_link' CHECK (source_mode IN ('drive_link', 'ai_generated')),
       drive_url TEXT,
       ai_note TEXT,
+      notes TEXT,
       status TEXT NOT NULL DEFAULT 'not_submitted' CHECK (status IN ('not_submitted', 'resubmit', 'done')),
       created_by TEXT NOT NULL,
       updated_by TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  /* Add notes column for existing tables */
+  await sql`
+    ALTER TABLE content_resources
+    ADD COLUMN IF NOT EXISTS notes TEXT
   `;
 
   /* Add unique constraint to prevent duplicate resource types per subsection */

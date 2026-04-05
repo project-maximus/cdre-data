@@ -354,6 +354,7 @@ function AdminInner({ username, role }) {
                     <th>Type</th>
                     <th>Source</th>
                     <th>Status</th>
+                    <th>Notes</th>
                     <th>By</th>
                     <th>Date</th>
                     <th style={{ width: 70 }}>Actions</th>
@@ -371,6 +372,9 @@ function AdminInner({ username, role }) {
                       <td><span className="badge badge-type">{RESOURCE_LABELS[r.resourceType] || r.resourceType}</span></td>
                       <td><span className="badge badge-source">{SOURCE_MODE_LABELS[r.sourceMode] || r.sourceMode}</span></td>
                       <td><StatusBadge status={r.status} /></td>
+                      <td style={{ fontSize: 12, color: "var(--n-600)", maxWidth: 220 }} title={r.notes || ""}>
+                        {r.notes ? (r.notes.length > 64 ? `${r.notes.slice(0, 64)}...` : r.notes) : "—"}
+                      </td>
                       <td style={{ fontSize: 12, color: "var(--n-600)" }}>{r.createdBy}</td>
                       <td style={{ fontSize: 11, color: "var(--n-400)", whiteSpace: "nowrap" }}>{formatDate(r.updatedAt)}</td>
                       <td>

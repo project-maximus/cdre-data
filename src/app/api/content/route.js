@@ -38,6 +38,7 @@ export async function GET(request) {
           r.source_mode,
           r.drive_url,
           r.ai_note,
+          r.notes,
           r.status,
           r.created_by,
           r.updated_at
@@ -63,6 +64,7 @@ export async function GET(request) {
           r.source_mode,
           r.drive_url,
           r.ai_note,
+          r.notes,
           r.status,
           r.created_by,
           r.updated_at
@@ -112,6 +114,7 @@ export async function GET(request) {
           sourceMode: row.source_mode,
           driveUrl: row.drive_url,
           aiNote: row.ai_note,
+          notes: row.notes,
           status: row.status,
           createdBy: row.created_by,
           updatedAt: row.updated_at,
@@ -144,9 +147,10 @@ export async function POST(request) {
 
   try {
     const sql = getSql();
-    const { subsectionId, resourceType, sourceMode, driveUrl, aiNote } = await request.json();
+    const { subsectionId, resourceType, sourceMode, driveUrl, aiNote, notes } = await request.json();
     const normalizedSourceMode = sourceMode || "drive_link";
     const normalizedAiNote = (aiNote || "").trim();
+    const normalizedNotes = (notes || "").trim();
 
     if (!subsectionId || !resourceType || !normalizedSourceMode) {
       return NextResponse.json(
@@ -193,6 +197,7 @@ export async function POST(request) {
         source_mode,
         drive_url,
         ai_note,
+        notes,
         status,
         created_by,
         updated_by
@@ -203,6 +208,7 @@ export async function POST(request) {
         ${normalizedSourceMode},
         ${normalizedSourceMode === "drive_link" ? driveUrl : null},
         ${normalizedSourceMode === "ai_generated" ? normalizedAiNote : null},
+        ${normalizedNotes || null},
         ${"done"},
         ${session.username},
         ${session.username}
