@@ -62,3 +62,24 @@ Dummy users:
 - admin / admin123
 - editor / editor123
 - viewer / viewer123
+
+## CDRE Content Structure Setup
+
+Run this once to create content tables and seed the full CDRE hierarchy:
+
+```bash
+npm run db:init-content
+```
+
+This creates:
+
+- `content_sections`
+- `content_subsections`
+- `content_resources`
+
+## How Content Links Are Stored
+
+- Sign in and open `/dashboard`.
+- Choose a section and subsection.
+- Add a Google Drive link with a resource type and workflow status.
+- Status values: `not_submitted`, `resubmit`, `done`.

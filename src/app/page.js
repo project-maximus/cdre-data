@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -29,8 +31,10 @@ export default function Home() {
         return;
       }
 
-      setMessage(`Signed in as ${data.username}.`);
+      setMessage(`Signed in as ${data.username}. Redirecting...`);
       setPassword("");
+      router.push("/dashboard");
+      router.refresh();
     } catch {
       setMessage("Could not reach server. Please try again.");
     } finally {
